@@ -315,6 +315,7 @@ chmod +x /www/wwwroot/wine-storage-system/deploy.sh
 cd /www/wwwroot/wine-storage-system
 ./deploy.sh
 ```
+以后每次直接用命令部署即可，不需要每次都重新配置一次。
 
 ### 第九步：防火墙和安全配置
 
