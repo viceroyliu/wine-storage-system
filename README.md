@@ -333,16 +333,95 @@ cd /www/wwwroot/wine-storage-system
 #### 1. 数据库自动备份
 - 宝塔面板 → **计划任务** → **添加任务**
 - **任务类型：** Shell脚本
-- **任务名称：** 酒水系统数据库备份
-- **执行周期：** 每天 02:00
+- **任务名称：** 酒水系统每月自动部署
+- **执行周期：** 每月 - 1日 - 02:30 执行
 - **脚本内容：**
 ```bash
 #!/bin/bash
-BACKUP_DIR="/www/backup/wine-storage"
-mkdir -p $BACKUP_DIR
-mongodump --db wine-storage --out $BACKUP_DIR/$(date +%Y%m%d)
-# 删除30天前的备份
-find $BACKUP_DIR -type d -mtime +30 -exec rm -rf {} \; 2>/dev/null
+# 酒水管理系统每月自动部署任务
+
+# 强制设置环境变量
+export PATH="/www/server/nodejs/v16.20.2/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export NODE_PATH="/www/server/nodejs/v16.20.2/lib/node_modules"
+
+# 项目路径
+PROJECT_DIR="/www/wwwroot/wine-storage-system"
+LOG_FILE="/www/wwwlogs/wine-auto-deploy.log"
+
+# 创建日志目录（如果不存在）
+mkdir -p /www/wwwlogs
+
+# 函数：记录日志
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"  # 同时输出到控制台
+}
+
+# 记录开始时间
+log_message "开始自动部署任务"
+
+# 检查Node.js是否可用
+if command -v node >/dev/null 2>&1; then
+    log_message "Node.js版本: $(node --version)"
+else
+    log_message "错误：Node.js未找到"
+    # 尝试其他可能的Node.js路径
+    for node_path in /www/server/nodejs/*/bin; do
+        if [ -d "$node_path" ]; then
+            export PATH="$node_path:$PATH"
+            log_message "尝试使用Node.js路径: $node_path"
+            break
+        fi
+    done
+fi
+
+# 检查npm是否可用
+if command -v npm >/dev/null 2>&1; then
+    log_message "npm可用"
+else
+    log_message "错误：npm未找到"
+fi
+
+# 检查项目目录
+if [ ! -d "$PROJECT_DIR" ]; then
+    log_message "错误：项目目录不存在 $PROJECT_DIR"
+    exit 1
+fi
+
+log_message "项目目录存在: $PROJECT_DIR"
+
+# 进入项目目录
+cd "$PROJECT_DIR" || {
+    log_message "错误：无法进入项目目录"
+    exit 1
+}
+
+log_message "已进入项目目录: $(pwd)"
+
+# 检查deploy.sh脚本
+if [ -f "./deploy.sh" ]; then
+    log_message "找到部署脚本: ./deploy.sh"
+    
+    # 设置执行权限
+    chmod +x ./deploy.sh
+    log_message "已设置执行权限"
+    
+    # 执行部署脚本并捕获输出
+    log_message "开始执行部署脚本..."
+    
+    if timeout 1800 ./deploy.sh >> "$LOG_FILE" 2>&1; then
+        log_message "自动部署成功"
+    else
+        exit_code=$?
+        log_message "自动部署失败，退出码: $exit_code"
+    fi
+else
+    log_message "错误：找不到部署脚本 ./deploy.sh"
+    log_message "当前目录内容:"
+    ls -la >> "$LOG_FILE" 2>&1
+fi
+
+log_message "自动部署任务结束"
 ```
 
 #### 2. 清理系统日志
